@@ -117,7 +117,7 @@ class Creature {
         const theta = THREE.Math.degToRad(getRandomNum(180));
         const phi = THREE.Math.degToRad(getRandomNum(360));
         if (this.team != "red"){
-          const bcolor = new THREE.Color({color: 0x00ffff})
+          const bcolor = new THREE.Color(0x00ffff)
           const geometry = new THREE.BoxGeometry( 10, 10, 30 );
           const material = new THREE.MeshLambertMaterial({ color: bcolor});
           this.mesh = new THREE.Mesh(geometry, material);
@@ -125,7 +125,7 @@ class Creature {
           this.mesh.position.y = -800;
           this.mesh.position.z = -300;
         } else {
-          const bcolor = new THREE.Color({color: 0xff0000})
+          const bcolor = new THREE.Color(0xff0000)
           const geometry = new THREE.CylinderGeometry(1, 8, 25, 12);
           geometry.rotateX(THREE.Math.degToRad(90));
           const material = new THREE.MeshPhongMaterial({ color: bcolor});

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<HTML>
+  <HEAD>
+    <TITLE>CS423 Homework Boids?</TITLE>
+    <SCRIPT TYPE="text/javascript" SRC="../libs/three.js"></SCRIPT>
+    <SCRIPT TYPE="text/javascript" SRC="../libs/stats.min.js"></SCRIPT>
+    <SCRIPT TYPE="text/javascript" SRC="../libs/dat.gui.js"></SCRIPT>
+    <STYLE>
+      body { 
+      /* fullscreen */
+        margin : 0;
+        overflow: hidden;
+      }
+    </STYLE>
+  </HEAD>
+  <BODY>
+    <div id="totals"></div>
+    <div id="Stats-output"></div>
+    <DIV ID="WebGL-output"></DIV>
+    <!--Scripts that we use for running things-->
+    <SCRIPT>
+      //the mouse movement vars being declared
+      let isUserInteracting = false,
+      onPointerDownMouseX = 0, onPointerDownMouseY = 0, lat = 0, lon = 0,
+      onPointerDownLon = 0,  onPointerDownLat = 0, phi = 0, theta = 0;
+      
+    let boid;
+    let creatureMeshGroup = new THREE.Group();
+   // const creatureNum = 550;
+    let team1num = 300;
+    let team2num = 350;
+    const getRandomNum = (max = 0, min = 0) => Math.floor(Math.random() * (max + 1 - min)) + min;
+    const maxHP = 100;
+    let LIMITmaxspeed = 20;
+    var scene = new THREE.Scene();
+    var children_to_remove = [];
+    /*--------------------------------------------
+    Computer Graphics project Fall 2021 semester
+    "Space Battle" by C. Byrd
+    
+    Pulling heavily from takashi's three.js Boids 3D
+    at: https://codepen.io/tksiiii/pen/jzBZdo
+    with help from 
+    Ben Eater's Boids.js:https://github.com/beneater/boids/blob/master/boids.js
+    and other misc examples from the Three.js site
+      
+    
+    /--------------------------------------------*/
+    /* datGUI
+-------------------------------------------------------------*/
+let gui = new dat.GUI();
+let guiControls = new function () {
+    this.reset = () => {
+        //reset function
+        boid.reset();
+    }
+    this.params = {
+        maxSpeed: 7,
+        //maxHP: 100, 
+        seek: {
+            maxForce: 0.040
+        },
+        align: {
+            effectiveRange: 85,
+            maxForce: 0.16
+        },
+        separate: {
+            effectiveRange: 65,
+            maxForce: 0.2
+        },
+        close_in_: {
+            effectiveRange: 200
+        },
+        hp: {
+            maxhp: 100 
+        },
+        critters: {
+          box_ships: 300,
+          cone_ships: 350
+        },
+        
+    }
+}
+  gui.add(guiControls.params, 'maxSpeed', 5, 20);
+ gui.add(guiControls, 'reset');
+ const folderInit = gui.addFolder('initialization variables');
+ folderInit.add(guiControls.params.hp, 'maxhp', 1, 1000);
+ folderInit.add(guiControls.params.critters, 'box_ships', 50, 1000).onChange(function (e) {
+      team2num = e
+  });
+ folderInit.add(guiControls.params.critters, 'cone_ships', 50, 1000).onChange(function (e) {
+      team1num = e
+  });
+
+ const folderAlign = gui.addFolder('align');
+ folderAlign.add(guiControls.params.align, 'effectiveRange', 0, 200);
+ folderAlign.add(guiControls.params.align, 'maxForce', 0, 0.3);
+ folderAlign.close();
+
+ const folderSeparate = gui.addFolder('separate');
+ folderSeparate.add(guiControls.params.separate, 'effectiveRange', 0, 200);
+ folderSeparate.add(guiControls.params.separate, 'maxForce', 0, 0.4);
+ folderSeparate.close();
+
+ const folderclose_in_ = gui.addFolder('close_in');
+ folderclose_in_.add(guiControls.params.close_in_, 'effectiveRange', 0, 300);
+ folderclose_in_.add(guiControls.params.seek, 'maxForce', 0, 0.05);
+ folderclose_in_.close();
+ 
+
+      
+class Creature {
+    constructor(teamname = "red") {
+        
+        this.team = teamname;
+        const radius = getRandomNum(400, 600);
+        const theta = THREE.Math.degToRad(getRandomNum(180));
+        const phi = THREE.Math.degToRad(getRandomNum(360));
+        if (this.team != "red"){
+          const bcolor = new THREE.Color({color: 0x00ffff})
+          const geometry = new THREE.BoxGeometry( 10, 10, 30 );
+          const material = new THREE.MeshLambertMaterial({ color: bcolor});
+          this.mesh = new THREE.Mesh(geometry, material);
+          this.mesh.position.x = -800;
+          this.mesh.position.y = -800;
+          this.mesh.position.z = -300;
+        } else {
+          const bcolor = new THREE.Color({color: 0xff0000})
+          const geometry = new THREE.CylinderGeometry(1, 8, 25, 12);
+          geometry.rotateX(THREE.Math.degToRad(90));
+          const material = new THREE.MeshPhongMaterial({ color: bcolor});
+          this.mesh = new THREE.Mesh(geometry, material);
+          this.mesh.position.x = (Math.sin(theta) * Math.cos(phi) * radius) +100;
+          this.mesh.position.y = (Math.sin(theta) * Math.sin(phi) * radius) +500;
+          this.mesh.position.z = (Math.cos(theta) * radius)+ 300;
+          //this.mesh.position.x = 100;
+          //this.mesh.position.y = 500;
+          //this.mesh.position.z = 300;
+        }
+
+        this.velocity = new THREE.Vector3(getRandomNum(100, -100) * 0.1, getRandomNum(100, -100) * 0.1, getRandomNum(100, -100) * 0.1);
+        this.acceleration = new THREE.Vector3();
+        this.wonderTheta = 0;
+        this.hp = guiControls.params.hp.maxhp;
+        this.maxSpeed = LIMITmaxspeed;
+        this.boost = new THREE.Vector3();
+    }
+
+    applyForce(f) {
+        this.acceleration.add(f.clone());
+    }
+
+    update() {
+        const maxSpeed = this.maxSpeed;
+
+        // boost
+        this.applyForce(this.boost);
+        this.boost.multiplyScalar(0.9);
+        if (this.boost.length() < 0.01) {
+            this.boost = new THREE.Vector3();
+        }
+
+        // update velocity
+        this.velocity.add(this.acceleration);
+
+        // limit velocity
+        if (this.velocity.length() > maxSpeed) {
+            this.velocity.clampLength(0, maxSpeed);
+        }
+
+        // update position
+        this.mesh.position.add(this.velocity);
+        
+        // reset acc
+        this.acceleration.multiplyScalar(0);
+        
+        // head
+        const head = this.velocity.clone();
+        head.multiplyScalar(10);
+        head.add(this.mesh.position);
+        this.mesh.lookAt(head);
+    }
+}
+class Boid {
+    constructor(creatures = []) {
+        this.creatures = creatures;
+        this.params = guiControls.params;
+    }
+
+    update() {
+        this.creatures.forEach((creature, index, arrayofcreatures) => {
+        
+            creature.applyForce(this.separate(creature));
+            creature.applyForce(this.align(creature));
+            creature.applyForce(this.close_in(creature));
+  
+            //keep in camera range (radius 2500)
+            creature.applyForce(this.avoidwalls(creature, 2500));
+            if(creature.mesh.visible == false) { 
+              arrayofcreatures.splice(index, 1);
+            }
+            
+            if(arrayofcreatures.length == 0)
+            {
+              generateBoid();
+            }
+            
+            creature.update();
+        });
+    }
+    
+    reset() {
+      this.creatures.forEach((creature, index, arrayofcreatures) => {
+        //children_to_remove.push(creature.mesh);
+        creature.mesh.visible = false;
+      }); //end foreach
+      //this.creatures = [];
+      
+     
+    
+    
+    }
+
+    setBoost() {
+        this.creatures.forEach((creature) => {
+            if (creature.boost.length() === 0) {
+                creature.boost.x = getRandomNum(10, -10) * 0.1;
+                creature.boost.y = getRandomNum(10, -10) * 0.1;
+                creature.boost.z = getRandomNum(10, -10) * 0.1;
+                creature.boost.normalize();
+                creature.boost.multiplyScalar(this.params.maxSpeed);
+            }
+        });
+    }
+
+    seek(currentCreature, target = new THREE.Vector3()) {
+        const maxSpeed = this.params.maxSpeed;;
+        const maxForce = this.params.seek.maxForce;
+        const toGoalVector = new THREE.Vector3();
+        toGoalVector.subVectors(target, currentCreature.mesh.position);
+        const distance = toGoalVector.length();
+        toGoalVector.normalize();
+        toGoalVector.multiplyScalar(maxSpeed);
+        const steerVector = new THREE.Vector3();
+        steerVector.subVectors(toGoalVector, currentCreature.velocity);
+        // limit force
+        if (steerVector.length() > maxForce) {
+            steerVector.clampLength(0, maxForce);
+        }
+        return steerVector;
+    }
+
+    align(currentCreature) {
+        const sumVector = new THREE.Vector3();
+        let cnt = 0;
+        const maxSpeed = this.params.maxSpeed;;
+        const maxForce = this.params.align.maxForce;
+        const effectiveRange = this.params.align.effectiveRange;
+        const steerVector = new THREE.Vector3();
+
+        this.creatures.forEach((creature) => {
+            
+            const dist = currentCreature.mesh.position.distanceTo(creature.mesh.position);
+            if(currentCreature.team == creature.team){
+              if (dist > 0 && dist < effectiveRange) {
+                  sumVector.add(creature.velocity);
+                  cnt++;
+              }
+            } else {   
+              if (dist > 0 && dist < effectiveRange + 160) {
+                var tempnum = getRandomNum(100, 0)
+                  if( tempnum > 80)
+                {  //fire teh lazor!
+                  //firelazor(currentCreature.mesh.position, creature.mesh.position);
+                  //from: https://jsfiddle.net/prisoner849/8u560zsy/ (line between 2 points example )
+                  let lG = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(), new THREE.Vector3() ]);
+                  var colortype = "yellow";
+                  if (tempnum > 90) { colortype = "red"};
+                  let lM = new THREE.LineBasicMaterial({color: colortype});
+                  let laze = new THREE.Line(lG, lM);
+                  laze.name = "temp";
+                  scene.add(laze);
+                  let oP = currentCreature.mesh.position;
+                  let tP = creature.mesh.position;
+           
+                  laze.geometry.attributes.position.setXYZ(0, oP.x, oP.y, oP.z);
+                  laze.geometry.attributes.position.setXYZ(1, tP.x, tP.y, tP.z);
+                  laze.geometry.attributes.position.needsUpdate = true;
+                  
+                  creature.hp = creature.hp - 1;
+                  if (creature.hp < 0) { creature.mesh.visible = false; }
+                }
+              }
+            }
+        });
+
+        if (cnt > 0) {
+            sumVector.divideScalar(cnt);
+            sumVector.normalize();
+            sumVector.multiplyScalar(maxSpeed);
+
+            steerVector.subVectors(sumVector, currentCreature.velocity);
+            // limit force
+            if (steerVector.length() > maxForce) {
+                steerVector.clampLength(0, maxForce);
+            }
+        }
+
+        return steerVector;
+    }
+
+    separate(currentCreature) {
+        const sumVector = new THREE.Vector3();
+        let cnt = 0;
+        const maxSpeed = this.params.maxSpeed;
+        const maxForce = this.params.separate.maxForce;
+        const effectiveRange = this.params.separate.effectiveRange;
+        const steerVector = new THREE.Vector3();
+
+        this.creatures.forEach((creature) => {
+            const dist = currentCreature.mesh.position.distanceTo(creature.mesh.position);
+            if (dist > 0 && dist < effectiveRange) {
+                let toMeVector = new THREE.Vector3();
+                toMeVector.subVectors(currentCreature.mesh.position, creature.mesh.position);
+                toMeVector.normalize();
+                toMeVector.divideScalar(dist);
+                sumVector.add(toMeVector);
+                cnt++;
+            }
+        });
+
+        if (cnt > 0) {
+            sumVector.divideScalar(cnt);
+            sumVector.normalize();
+            sumVector.multiplyScalar(maxSpeed);
+
+            steerVector.subVectors(sumVector, currentCreature.velocity);
+            // limit force
+            if (steerVector.length() > maxForce) {
+                steerVector.clampLength(0, maxForce);
+            }
+        }
+
+        return steerVector;
+    }
+
+
+    close_in(currentCreature) {
+        const sumVector = new THREE.Vector3();
+        let cnt = 0;
+        const effectiveRange = this.params.close_in_.effectiveRange;
+        const steerVector = new THREE.Vector3();
+
+        this.creatures.forEach((creature) => {
+            const dist = currentCreature.mesh.position.distanceTo(creature.mesh.position);
+            if (dist > 0 && dist < effectiveRange) {
+                sumVector.add(creature.mesh.position);
+                cnt++;
+                
+            }
+        })
+
+        if (cnt > 0) {
+            sumVector.divideScalar(cnt);
+            steerVector.add(this.seek(currentCreature, sumVector));
+        }
+
+        return steerVector;
+    }
+
+    avoid(currentCreature, wall = new THREE.Vector3()) {
+        currentCreature.mesh.geometry.computeBoundingSphere();
+        const boundingSphere = currentCreature.mesh.geometry.boundingSphere;
+
+        const toMeVector = new THREE.Vector3();
+        toMeVector.subVectors(currentCreature.mesh.position, wall);
+
+        const distance = toMeVector.length() - boundingSphere.radius * 2;
+        const steerVector = toMeVector.clone();
+        steerVector.normalize();
+        steerVector.multiplyScalar(1 / (Math.pow(distance, 2)));
+        return steerVector;
+    }
+
+    avoidwalls(currentCreature, radius = 500) {
+        currentCreature.mesh.geometry.computeBoundingSphere();
+        const boundingSphere = currentCreature.mesh.geometry.boundingSphere;
+
+        const distance = radius - currentCreature.mesh.position.length() - boundingSphere.radius;
+
+        const steerVector = currentCreature.mesh.position.clone();
+        steerVector.normalize();
+        steerVector.multiplyScalar(-1 / (Math.pow(distance, 2)));
+        steerVector.multiplyScalar(Math.pow(currentCreature.velocity.length(), 3));
+        return steerVector;
+    }
+
+    
+}
+      
+//function init() {
+
+    
+    var stats = initStats();
+    // create a scene, that will hold all our elements such as objects, cameras and lights.
+    //var scene = new THREE.Scene();
+
+    // create a camera, which defines where we're looking at.
+    var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 3000);
+    camera.position.x = -200;
+    camera.position.y = 100;
+    camera.position.z = -100;
+    camera.lookAt(scene.position);
+
+    // create a render and set the size
+    var renderer = new THREE.WebGLRenderer();
+    //renderer.setClearColor(new THREE.Color(0xEEEEEE, 1.0));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    //directional light
+    var directionalLight = new THREE.DirectionalLight(0xf0f0f0, 0.7);
+    directionalLight.position.set(-200, 140, -160);
+    scene.add(directionalLight);
+    // add subtle ambient lighting
+    var ambientLight = new THREE.AmbientLight(0xf0f0f0);
+    ambientLight.intensity = 0.2;
+    scene.add(ambientLight);
+    //-----------------------test----------
+    
+    
+    
+    //--------------------------------
+const generateBoid = () => {
+    const creatures = [];
+    scene.remove(creatureMeshGroup);
+    creatureMeshGroup = new THREE.Group();
+  //  for (let i = 0; i < creatureNum; i++) {
+  //      const creature = new Creature();
+   //     creatureMeshGroup.add(creature.mesh);
+  //      creatures.push(creature);
+   // }
+   for (let i = 0; i < team1num; i++) {
+      const creature = new Creature("red");
+      creatureMeshGroup.add(creature.mesh);
+      creatures.push(creature);
+   }
+   for (let i = 0; i < team2num; i++) {
+      const creature = new Creature("blue");
+      creatureMeshGroup.add(creature.mesh);
+      creatures.push(creature);
+   }
+    
+    boid = new Boid(creatures);
+    scene.add(creatureMeshGroup);
+}
+generateBoid();
+//-----------test area--------------
+var mesh = null;
+function initMesh() {
+    var toasterloader = new THREE.ObjectLoader();
+    toasterloader.load('./assets/toaster4.json',
+	// Here the loaded data is assumed to be an object
+	function ( obj ) {
+		// Add the loaded object to the scene
+		scene.add( obj );
+	},
+	// onProgress callback
+	function ( xhr ) {
+		console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+	},
+	// onError callback
+	function ( err ) {
+		console.error( 'An error happened' );
+	}
+);
+}
+initMesh();
+
+//--------------------------
+    
+
+    // add the output of the renderer to the html element
+    document.getElementById("WebGL-output").appendChild(renderer.domElement);
+    
+    //camera movement here (from https://threejs.org/examples/webgl_panorama_equirectangular.html)
+    const container = document.getElementById( 'WebGL-output' );
+    container.addEventListener( 'pointerdown', onPointerDown );
+    	function onPointerDown( event ) {
+
+				if ( event.isPrimary === false ) return;
+
+				isUserInteracting = true;
+
+				onPointerDownMouseX = event.clientX;
+				onPointerDownMouseY = event.clientY;
+
+				onPointerDownLon = lon;
+				onPointerDownLat = lat;
+
+				document.addEventListener( 'pointermove', onPointerMove );
+				document.addEventListener( 'pointerup', onPointerUp );
+
+			}
+      function onPointerMove( event ) {
+
+				if ( event.isPrimary === false ) return;
+
+				lon = ( onPointerDownMouseX - event.clientX ) * 0.1 + onPointerDownLon;
+				lat = ( event.clientY - onPointerDownMouseY ) * 0.1 + onPointerDownLat;
+
+			}
+      function onPointerUp() {
+
+				if ( event.isPrimary === false ) return;
+
+				isUserInteracting = false;
+
+				document.removeEventListener( 'pointermove', onPointerMove );
+				document.removeEventListener( 'pointerup', onPointerUp );
+
+			}//end camera movement
+    
+
+//https://threejs.org/examples/webgl_panorama_equirectangular.html
+    const geometrySpace = new THREE.SphereGeometry( 2500, 60, 40 );
+    // invert the geometry on the x-axis so that all of the faces point inward
+    geometrySpace.scale( - 1, 1, 1 );
+
+    const textureSpace = new THREE.TextureLoader().load( '../assets/lady of the rings HDRIS/LOTR 1.jpg' );
+    const materialSpace = new THREE.MeshBasicMaterial( { map: textureSpace } );
+
+    const bgSpace = new THREE.Mesh( geometrySpace, materialSpace );
+
+    scene.add( bgSpace );
+
+
+    animate();
+			function animate() {
+        boid.update();
+				requestAnimationFrame( animate );
+				update();
+			}
+
+			function update() {
+        //camera movement via mouse code
+				lat = Math.max( - 85, Math.min( 85, lat ) );
+				phi = THREE.MathUtils.degToRad( 90 - lat );
+				theta = THREE.MathUtils.degToRad( lon );
+
+				const x = 500 * Math.sin( phi ) * Math.cos( theta );
+				const y = 500 * Math.cos( phi );
+				const z = 500 * Math.sin( phi ) * Math.sin( theta );
+
+				camera.lookAt( x, y, z);
+        //end camera movement code.
+        
+        
+				renderer.render( scene, camera );
+        
+        //cleanup - doesnt actually remove stuff re: https://threejs.org/docs/#manual/en/introduction/How-to-dispose-of-objects
+        //var children_to_remove = [];  //https://stackoverflow.com/questions/52283558/how-can-i-remove-a-group-from-a-three-js-scene-on-click
+        scene.traverse( function ( object ) {
+          if ( object instanceof THREE.Line ) {
+            children_to_remove.push(object);
+            //scene.remove(object);
+           // object.visible = false;
+           // object.remove(object.children[0]);
+          } else if(object.visible == false) {
+            children_to_remove.push(object);
+          }
+        });
+        children_to_remove.forEach(function(child){
+          scene.remove(child);
+        });
+
+			}
+      //resize
+      function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+    function initStats() {
+        var stats = new Stats();
+        stats.setMode(0); // 0: fps, 1: ms
+        // Align top-left
+        stats.domElement.style.position = 'absolute';
+        stats.domElement.style.left = '0px';
+        stats.domElement.style.top = '0px';
+
+        document.getElementById("Stats-output").appendChild(stats.domElement);
+        return stats;
+    }
+//}
+//window.onload = init
+    </SCRIPT>
+  </BODY>
+</HTML>

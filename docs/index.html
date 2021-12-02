@@ -2,9 +2,9 @@
 <HTML>
   <HEAD>
     <TITLE>CS423 Homework Boids?</TITLE>
-    <SCRIPT TYPE="text/javascript" SRC="../libs/three.js"></SCRIPT>
-    <SCRIPT TYPE="text/javascript" SRC="../libs/stats.min.js"></SCRIPT>
-    <SCRIPT TYPE="text/javascript" SRC="../libs/dat.gui.js"></SCRIPT>
+    <SCRIPT TYPE="text/javascript" SRC="https://cdnjs.cloudflare.com/ajax/libs/three.js/101/three.min.js"></SCRIPT>
+    <SCRIPT TYPE="text/javascript" SRC="https://cdnjs.cloudflare.com/ajax/libs/stats.js/7/Stats.min.js"></SCRIPT>
+    <SCRIPT TYPE="text/javascript" SRC="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></SCRIPT>
     <STYLE>
       body { 
       /* fullscreen */
@@ -543,6 +543,7 @@ initMesh();
 			}
 
 			function update() {
+        stats.update();
         //camera movement via mouse code
 				lat = Math.max( - 85, Math.min( 85, lat ) );
 				phi = THREE.MathUtils.degToRad( 90 - lat );

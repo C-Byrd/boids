@@ -527,7 +527,7 @@ initMesh();
     // invert the geometry on the x-axis so that all of the faces point inward
     geometrySpace.scale( - 1, 1, 1 );
 
-    const textureSpace = new THREE.TextureLoader().load( '../assets/lady of the rings HDRIS/LOTR 1.jpg' );
+    const textureSpace = new THREE.TextureLoader().load( 'LOTR 1.jpg' );
     const materialSpace = new THREE.MeshBasicMaterial( { map: textureSpace } );
 
     const bgSpace = new THREE.Mesh( geometrySpace, materialSpace );

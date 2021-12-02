@@ -546,8 +546,8 @@ initMesh();
         stats.update();
         //camera movement via mouse code
 				lat = Math.max( - 85, Math.min( 85, lat ) );
-				phi = THREE.MathUtils.degToRad( 90 - lat );
-				theta = THREE.MathUtils.degToRad( lon );
+				phi = THREE.Math.degToRad( 90 - lat );
+				theta = THREE.Math.degToRad( lon );
 
 				const x = 500 * Math.sin( phi ) * Math.cos( theta );
 				const y = 500 * Math.cos( phi );

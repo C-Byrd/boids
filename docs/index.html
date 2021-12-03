@@ -42,7 +42,7 @@
     at: https://codepen.io/tksiiii/pen/jzBZdo
     with help from 
     Ben Eater's Boids.js:https://github.com/beneater/boids/blob/master/boids.js
-    and other misc examples from the Three.js site
+    and other examples from the Three.js site
       
     
     /--------------------------------------------*/
@@ -106,17 +106,16 @@ let guiControls = new function () {
  folderclose_in_.add(guiControls.params.close_in_, 'effectiveRange', 0, 300);
  folderclose_in_.add(guiControls.params.seek, 'maxForce', 0, 0.05);
  folderclose_in_.close();
- 
 
-      
+
 class Creature {
+
     constructor(teamname = "red") {
-        
         this.team = teamname;
-        const radius = getRandomNum(400, 600);
+        const radius = getRandomNum(400, 600);    //for random position in a sphere
         const theta = THREE.Math.degToRad(getRandomNum(180));
-        const phi = THREE.Math.degToRad(getRandomNum(360));
-        if (this.team != "red"){
+        const phi = THREE.Math.degToRad(getRandomNum(360));    
+        if (this.team != "red"){  //team 1
           const bcolor = new THREE.Color(0x00ffff)
           const geometry = new THREE.BoxGeometry( 10, 10, 30 );
           const material = new THREE.MeshLambertMaterial({ color: bcolor});
@@ -124,7 +123,7 @@ class Creature {
           this.mesh.position.x = -800;
           this.mesh.position.y = -800;
           this.mesh.position.z = -300;
-        } else {
+        } else {  //else team 2
           const bcolor = new THREE.Color(0xff0000)
           const geometry = new THREE.CylinderGeometry(1, 8, 25, 12);
           geometry.rotateX(THREE.Math.degToRad(90));
@@ -133,9 +132,6 @@ class Creature {
           this.mesh.position.x = (Math.sin(theta) * Math.cos(phi) * radius) +100;
           this.mesh.position.y = (Math.sin(theta) * Math.sin(phi) * radius) +500;
           this.mesh.position.z = (Math.cos(theta) * radius)+ 300;
-          //this.mesh.position.x = 100;
-          //this.mesh.position.y = 500;
-          //this.mesh.position.z = 300;
         }
 
         this.velocity = new THREE.Vector3(getRandomNum(100, -100) * 0.1, getRandomNum(100, -100) * 0.1, getRandomNum(100, -100) * 0.1);
@@ -146,11 +142,11 @@ class Creature {
         this.boost = new THREE.Vector3();
     }
 
-    applyForce(f) {
+    applyForce(f) { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
         this.acceleration.add(f.clone());
     }
 
-    update() {
+    update() { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
         const maxSpeed = this.maxSpeed;
 
         // boost
@@ -181,13 +177,13 @@ class Creature {
         this.mesh.lookAt(head);
     }
 }
-class Boid {
+class Boid { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
     constructor(creatures = []) {
         this.creatures = creatures;
         this.params = guiControls.params;
     }
 
-    update() {
+    update() {  //where the movement and calcs happen:
         this.creatures.forEach((creature, index, arrayofcreatures) => {
         
             creature.applyForce(this.separate(creature));
@@ -200,28 +196,23 @@ class Boid {
               arrayofcreatures.splice(index, 1);
             }
             
-            if(arrayofcreatures.length == 0)
+            if(arrayofcreatures.length == 0)  //all the creatures are dead or reset()
             {
-              generateBoid();
+              generateBoid(); //regenerates using new vars in GUI
             }
             
-            creature.update();
+            creature.update(); //and update based on creatureclass
         });
     }
     
-    reset() {
+    reset() { //when triggered from gui
       this.creatures.forEach((creature, index, arrayofcreatures) => {
         //children_to_remove.push(creature.mesh);
         creature.mesh.visible = false;
       }); //end foreach
-      //this.creatures = [];
-      
-     
-    
-    
     }
 
-    setBoost() {
+    setBoost() { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
         this.creatures.forEach((creature) => {
             if (creature.boost.length() === 0) {
                 creature.boost.x = getRandomNum(10, -10) * 0.1;
@@ -233,7 +224,7 @@ class Boid {
         });
     }
 
-    seek(currentCreature, target = new THREE.Vector3()) {
+    seek(currentCreature, target = new THREE.Vector3()) { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
         const maxSpeed = this.params.maxSpeed;;
         const maxForce = this.params.seek.maxForce;
         const toGoalVector = new THREE.Vector3();
@@ -250,7 +241,7 @@ class Boid {
         return steerVector;
     }
 
-    align(currentCreature) {
+    align(currentCreature) { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo (EXCEPT FOR THE LAZOR CODE)
         const sumVector = new THREE.Vector3();
         let cnt = 0;
         const maxSpeed = this.params.maxSpeed;;
@@ -306,11 +297,10 @@ class Boid {
                 steerVector.clampLength(0, maxForce);
             }
         }
-
         return steerVector;
     }
 
-    separate(currentCreature) {
+    separate(currentCreature) { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
         const sumVector = new THREE.Vector3();
         let cnt = 0;
         const maxSpeed = this.params.maxSpeed;
@@ -329,7 +319,6 @@ class Boid {
                 cnt++;
             }
         });
-
         if (cnt > 0) {
             sumVector.divideScalar(cnt);
             sumVector.normalize();
@@ -341,12 +330,11 @@ class Boid {
                 steerVector.clampLength(0, maxForce);
             }
         }
-
         return steerVector;
     }
 
 
-    close_in(currentCreature) {
+    close_in(currentCreature) { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
         const sumVector = new THREE.Vector3();
         let cnt = 0;
         const effectiveRange = this.params.close_in_.effectiveRange;
@@ -369,7 +357,7 @@ class Boid {
         return steerVector;
     }
 
-    avoid(currentCreature, wall = new THREE.Vector3()) {
+    avoid(currentCreature, wall = new THREE.Vector3()) { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
         currentCreature.mesh.geometry.computeBoundingSphere();
         const boundingSphere = currentCreature.mesh.geometry.boundingSphere;
 
@@ -383,12 +371,10 @@ class Boid {
         return steerVector;
     }
 
-    avoidwalls(currentCreature, radius = 500) {
+    avoidwalls(currentCreature, radius = 500) { //from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
         currentCreature.mesh.geometry.computeBoundingSphere();
         const boundingSphere = currentCreature.mesh.geometry.boundingSphere;
-
         const distance = radius - currentCreature.mesh.position.length() - boundingSphere.radius;
-
         const steerVector = currentCreature.mesh.position.clone();
         steerVector.normalize();
         steerVector.multiplyScalar(-1 / (Math.pow(distance, 2)));
@@ -398,8 +384,27 @@ class Boid {
 
     
 }
+const generateBoid = () => { //edited from takashi's three.js Boids 3D at: https://codepen.io/tksiiii/pen/jzBZdo
+    const creatures = [];
+    scene.remove(creatureMeshGroup);
+    creatureMeshGroup = new THREE.Group();
+    
+   for (let i = 0; i < team1num; i++) {
+      const creature = new Creature("red");
+      creatureMeshGroup.add(creature.mesh);
+      creatures.push(creature);
+   }
+   for (let i = 0; i < team2num; i++) {
+      const creature = new Creature("blue");
+      creatureMeshGroup.add(creature.mesh);
+      creatures.push(creature);
+   }
+    
+    boid = new Boid(creatures);
+    scene.add(creatureMeshGroup);
+}
       
-//function init() {
+function init() {
 
     
     var stats = initStats();
@@ -426,56 +431,31 @@ class Boid {
     var ambientLight = new THREE.AmbientLight(0xf0f0f0);
     ambientLight.intensity = 0.2;
     scene.add(ambientLight);
-    //-----------------------test----------
-    
-    
-    
-    //--------------------------------
-const generateBoid = () => {
-    const creatures = [];
-    scene.remove(creatureMeshGroup);
-    creatureMeshGroup = new THREE.Group();
-  //  for (let i = 0; i < creatureNum; i++) {
-  //      const creature = new Creature();
-   //     creatureMeshGroup.add(creature.mesh);
-  //      creatures.push(creature);
-   // }
-   for (let i = 0; i < team1num; i++) {
-      const creature = new Creature("red");
-      creatureMeshGroup.add(creature.mesh);
-      creatures.push(creature);
-   }
-   for (let i = 0; i < team2num; i++) {
-      const creature = new Creature("blue");
-      creatureMeshGroup.add(creature.mesh);
-      creatures.push(creature);
-   }
-    
-    boid = new Boid(creatures);
-    scene.add(creatureMeshGroup);
-}
+
+
+
 generateBoid();
 //-----------test area--------------
-var mesh = null;
-function initMesh() {
-    var toasterloader = new THREE.ObjectLoader();
-    toasterloader.load('./assets/toaster4.json',
+//var mesh = null;
+//function initMesh() {
+//    var toasterloader = new THREE.ObjectLoader();
+//    toasterloader.load('./assets/toaster4.json',
 	// Here the loaded data is assumed to be an object
-	function ( obj ) {
+//	function ( obj ) {
 		// Add the loaded object to the scene
-		scene.add( obj );
-	},
+//		scene.add( obj );
+//	},
 	// onProgress callback
-	function ( xhr ) {
-		console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
-	},
+//	function ( xhr ) {
+//		console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+//	},
 	// onError callback
-	function ( err ) {
-		console.error( 'An error happened' );
-	}
-);
-}
-initMesh();
+//	function ( err ) {
+//		console.error( 'An error happened' );
+//	}
+//);
+//}
+//initMesh();
 
 //--------------------------
     
@@ -544,7 +524,8 @@ initMesh();
 
 			function update() {
         stats.update();
-        //camera movement via mouse code
+        
+        //camera movement via mouse
 				lat = Math.max( - 85, Math.min( 85, lat ) );
 				phi = THREE.Math.degToRad( 90 - lat );
 				theta = THREE.Math.degToRad( lon );
@@ -596,8 +577,8 @@ initMesh();
         document.getElementById("Stats-output").appendChild(stats.domElement);
         return stats;
     }
-//}
-//window.onload = init
+}
+window.onload = init
     </SCRIPT>
   </BODY>
 </HTML>
